@@ -30,12 +30,11 @@ void putchar(char ch)
   sbi_call(ch, 0, 0, 0, 0, 0, 0, 1);
 }
 
-
 void kernel_main(void)
 {
-  printf("\n\nHello %s\n", "world");
-  printf("1 + 2 = %d, %x\n", 1 + 2, 0x1234abcd);
+  memset(__bss, 0, (size_t)__bss_end - (size_t)__bss);
 
+  printf("Hello world!\n");
   for (;;)
   {
     __asm__ __volatile__("wfi");
