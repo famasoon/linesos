@@ -138,15 +138,6 @@ kernel_entry(void)
       "sret\n");
 }
 
-void handle_trap(struct trap_frame *f)
-{
-  uint32_t scause = READ_CSR(scause);
-  uint32_t stval = READ_CSR(stval);
-  uint32_t user_pc = READ_CSR(sepc);
-
-  PANIC("unexpected trap scause=%x, stval=%x, sepc=%x\n", scause, stval, user_pc);
-}
-
 struct sbiret sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4, long arg5, long fid, long eid)
 {
   register long a0 __asm__("a0") = arg0;
@@ -168,6 +159,12 @@ struct sbiret sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4, lo
 void putchar(char ch)
 {
   sbi_call(ch, 0, 0, 0, 0, 0, 0, 1);
+}
+
+long getchar(void)
+{
+  struct sbiret ret = sbi_call(0, 0, 0, 0, 0, 0, 0, 2);
+  return ret.error;
 }
 
 struct process procs[PROCS_MAX];
@@ -296,6 +293,56 @@ void yield(void)
   struct process *prev = current_proc;
   current_proc = next;
   switch_context(&prev->sp, &next->sp);
+}
+
+void handle_syscall(struct trap_frame *f)
+{
+  switch (f->a3)
+  {
+  case SYS_PUTCHAR:
+    putchar(f->a0);
+    break;
+
+  case SYS_GETCHAR:
+    while (1)
+    {
+      long ch = getchar();
+      if (ch >= 0)
+      {
+        f->a0 = ch;
+        break;
+      }
+      yield();
+    }
+    break;
+  case SYS_EXIT:
+    printf("process %d exited\n", current_proc->pid);
+    current_proc->state;
+    yield();
+    PANIC("unreachble");
+
+  default:
+    PANIC("unexpected syscall a3=%x\n", f->a3);
+  }
+}
+
+void handle_trap(struct trap_frame *f)
+{
+  uint32_t scause = READ_CSR(scause);
+  uint32_t stval = READ_CSR(stval);
+  uint32_t user_pc = READ_CSR(sepc);
+
+  if (scause == SCAUSE_ECALL)
+  {
+    handle_syscall(f);
+    user_pc += 4;
+  }
+  else
+  {
+    PANIC("unexpected trap scause=%x, stval=%x, sepc=%x\n", scause, stval, user_pc);
+  }
+
+  WRITE_CSR(sepc, user_pc);
 }
 
 struct process *proc_a;
