@@ -42,11 +42,8 @@ void *memset(void *buf, char c, size_t n)
 
 void kernel_main(void)
 {
-  const char *s = "\n\nHello World!\n";
-  for (int i = 0; s[i] != '\0'; i++)
-  {
-    putchar(s[i]);
-  }
+  printf("\n\nHello %s\n", "world");
+  printf("1 + 2 = %d, %x\n", 1 + 2, 0x1234abcd);
 
   for (;;)
   {
